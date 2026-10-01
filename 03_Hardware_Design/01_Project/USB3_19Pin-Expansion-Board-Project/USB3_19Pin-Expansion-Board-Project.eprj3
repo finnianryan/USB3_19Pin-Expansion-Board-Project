@@ -1,0 +1,78 @@
+{
+  "name": "USB3_19Pin-Expansion-Board-Project",
+  "owner_uuid": "1ae07b8742964756beb3a4649f081176",
+  "creator_uuid": "1ae07b8742964756beb3a4649f081176",
+  "created_at": "2026-10-01 14:30:36",
+  "updated_at": "2026-10-01 14:30:36",
+  "modifier_uuid": "1ae07b8742964756beb3a4649f081176",
+  "content": "",
+  "archive": false,
+  "cbb_project": 0,
+  "thumb": "",
+  "ticket": 1,
+  "g_ticket": 1,
+  "boards": [],
+  "block_symbol_attrs_groups": {},
+  "default_sheet": "bea992b31b6a5359",
+  "branch_uuid": "",
+  "pcb_count": 0,
+  "format": "folder",
+  "profile": {
+    "boards": {
+      "68fac588bd1a3f71": {
+        "uuid": "68fac588bd1a3f71",
+        "title": "Board1",
+        "zIndex": 1
+      }
+    },
+    "schematics": {
+      "8a2eeca404bc37b2": {
+        "uuid": "8a2eeca404bc37b2",
+        "name": "Schematic1",
+        "board": "68fac588bd1a3f71",
+        "source": "",
+        "version": "1790868402047",
+        "updateTime": 1790868402047
+      }
+    },
+    "sheets": {
+      "7d85b721f5f143b6": {
+        "uuid": "7d85b721f5f143b6",
+        "title": "SCH_USB3_Expansion",
+        "schematic_uuid": "8a2eeca404bc37b2",
+        "zIndex": 1,
+        "source": "",
+        "version": "1790868402047",
+        "updateTime": 1790868402047
+      }
+    },
+    "pcbs": {
+      "644163c62b5551bb": {
+        "uuid": "644163c62b5551bb",
+        "title": "PCB_USB3_Expansion",
+        "board": "68fac588bd1a3f71",
+        "parent_uuid": "",
+        "source": "",
+        "version": "1790837479479",
+        "updateTime": 1790837479479
+      }
+    },
+    "panels": {
+      "f88ee269a527c91e": {
+        "uuid": "f88ee269a527c91e",
+        "title": "Panel1",
+        "zIndex": null
+      }
+    },
+    "blockSymbols": {},
+    "owner": {
+      "uuid": "1ae07b8742964756beb3a4649f081176"
+    },
+    "simSchematics": {},
+    "simulations": {}
+  },
+  "config": {
+    "defaultSheet": "bea992b31b6a5359",
+    "settings": {}
+  }
+}
