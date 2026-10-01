@@ -28,11 +28,25 @@ USB3_19Pin_Expansion_Board/
 │   ├── 03_Power_Design.md          # 电源与防倒灌方案
 │   └── 04_Cost_Analysis.xlsx       # 成本核算分析表
 │
-├── 03_Hardware_Design/             # 硬件设计源文件
-│   ├── 01_Schematic/               # 原理图工程及导出文件
-│   ├── 02_PCB/                     # PCB Layout 工程源文件
-│   ├── 03_BOM/                     # 物料清单 (BOM)
-│   └── 04_Component_Library/       # 原理图符号与 3D 封装库
+├── 03_Hardware_Design/             # 硬件设计
+│   ├── 01_Project/                 # EDA 工程源文件（集中放置，保证 EDA 内部相对引用不失效）
+│   │   ├── USB3_Board.PrjPcb / .kicad_pro
+│   │   ├── Schematic/              # 原理图源文件
+│   │   └── PCB/                    # PCB Layout 源文件
+│   │
+│   ├── 02_Library/                 # 本项目专用器件库（关键高速器件、Type-C 接口等）
+│   │   ├── Symbols/                # 原理图符号
+│   │   ├── Footprints/             # PCB 封装
+│   │   └── 3D_Models/              # 3D STEP 模型
+│   │
+│   ├── 03_Outputs/                 # 对外交付/生产输出（只读归档）
+│   │   ├── PDF/                    # 导出的原理图 PDF（带版本号，如 V1.0_20261001.pdf）
+│   │   ├── Gerber/                 # 打样投板文件（Gerber, Drill, 坐标文件等）
+│   │   └── BOM/                    # BOM 表（前期只需一个包含“位号、型号、封装、采购链接/立创编号”的表格）
+│   │
+│   └── 04_Reviews_and_Checklists/  # 统一的自检与评审（把检查项汇总在一处）
+│       ├── Hardware_Checklist.md   # 【核心】打样前检查表（USB 3.0 阻抗、TX/RX 极性、电源供电、DFM）
+│       └── Issue_Log.md            # 调试/改版问题记录（记录 Bug 和下一版本待修改项）
 │
 ├── 04_Manufacturing_Files/         # 生产加工工程资料
 │   ├── 01_Gerber/                  # PCB 制板光绘文件
