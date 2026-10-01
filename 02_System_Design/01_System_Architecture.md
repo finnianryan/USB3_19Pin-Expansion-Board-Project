@@ -12,16 +12,19 @@
 * **硬件原理图与 PCB Layout 设计**（详见 `03_Hardware_Design/` 目录）。
 
 ### 1.2 核心设计目标与系统边界
-1. **满定义全速扩展**：
+1. **满定义全速扩展（双独立上行与带宽定义）**：
    * 充分利用主板原生单个 19Pin 插座内含的 **2 条独立 USB 3.0 逻辑通道**（Port A 与 Port B）；
    * 通过 **双 Hub 控制器并行架构**（非级联），将输入端 1 个 19Pin 扩展为 4 个物理 19Pin 输出插座；
-   * 对外提供 **8 个完整独立、无降速的 USB 3.0 逻辑端口**（每个端口均包含独立 SuperSpeed 5Gbps 差分接收/发送对及 High-Speed D± 差分对）。
+   * 对外提供 **8 个完整独立、无降速的 USB 3.0 逻辑端口**（每个端口均包含独立 SuperSpeed 5Gbps 差分接收/发送对及 High-Speed D± 差分对）；
+   * **带宽科学定义**：双独立上行链路，每路理论速率 5Gbps，整板理论上游聚合带宽达 10Gbps；每颗 GL3510 的 4 个下游端口共享对应上行的 5Gbps 物理链路。
 2. **纯外部供电与零倒灌隔离**：
-   * 强制采用机箱内标准 **SATA 15Pin 辅助供电接口** 作为整板及外设的唯一能量来源；
-   * 主板原生 19Pin 供电引脚在板端**物理切断**，仅保留高阻侦测网络（侦测电流 $< 25\mu\text{A}$），实现主板供电与扩展板供电绝对物理隔离，彻底根除倒灌烧板风险。
-3. **低成本无源分组保护**：
+   * 强制采用机箱内标准 **SATA 15Pin 辅助供电接口** 作为整板及外设的唯一能量来源（Pin 7~9 提供 4.5A 额定 / 6.0A 瞬态电流）；
+   * 主板原生 19Pin 供电引脚在板端**物理切断**，仅保留双路独立高阻侦测网络（侦测电流 $< 25\mu\text{A}$），实现主板供电与扩展板供电绝对物理隔离，彻底根除倒灌烧板风险；
+   * SATA 输入端增设 **SMAJ5.0A TVS + 电子式 5.6V 快速 OVP 切断芯片（SGM2553/DIO7003）**，母线电压严格钳制在芯片安全耐压以内。
+3. **低成本无源分组保护与功率匹配**：
    * 放弃高成本、占布线空间的 8 路独立有源限流芯片方案；
-   * 采用 **4 组贴片自恢复保险丝（PPTC，维持电流 $2.0\text{A} \sim 2.5\text{A}$）** 按 19Pin 插座分组保护，结合主控 GANG 模式，达成极佳的安全性与成本平衡。
+   * 采用 **4 组贴片自恢复保险丝（PPTC，维持电流 $1.50\text{A} \sim 1.75\text{A}$，跳断电流约 3.0A）** 按 19Pin 插座分组保护；
+   * **【共享支路定义】**：每个 19Pin 输出插座内的两个 USB 端口在板端 Pin 1 与 Pin 19 并联，共享所属 1 颗 PPTC 供电池；4 组支路总维持电流收敛为 6.0A，与 SATA 15Pin 峰值输入能力闭环契合。
 4. **超紧凑机电一体化设计**：
    * 成品 PCB 尺寸严格控制在 **$62\text{mm} \times 38\text{mm}$** 范围内；
    * 采用“短边进线（19Pin 母座与 SATA 供电座）、长边出线（对称分布 4 组 19Pin 公座）”的高效拓扑，插座中心距 $\ge 30\text{mm}$，完全消除机箱粗线缆插拔干涉。
@@ -32,10 +35,11 @@
 | :--- | :--- | :--- |
 | **上行接口 (Upstream)** | 1 × 标准 2×10Pin 接口 (物理 19Pin 母座) | 承载 2 组独立 USB 3.0 逻辑通道 (Port A & Port B) |
 | **下行接口 (Downstream)**| 4 × 标准 2×10Pin 弯头/直插公座 (物理 19Pin) | 共对外提供 8 组独立满定义 USB 3.0 端口 |
-| **辅助供电接口** | 1 × 直焊式标准 SATA 15Pin 公座 | 仅取用 +5V 与 GND 引脚，+12V 与 +3.3V 悬空 |
+| **辅助供电接口** | 1 × 直焊式标准 SATA 15Pin 公座 | Pin 7~9 接 5V，Pin 4~6/10/12 接地，其余引脚悬空 |
+| **输入保护机制** | SMAJ5.0A TVS + 5.6V 电子式 OVP 切断芯片 | 解决 TVS 9.2V 钳位过高隐患，母线防浪涌防过压 |
 | **传输协议支持** | USB 3.1 Gen 1 (5Gbps)、USB 2.0 (480Mbps)、USB 1.1 | 协议免驱，兼容 Win 10/11、Linux、macOS |
-| **核心主控芯片** | 2 × 创惟科技 (Genesys Logic) GL3510-QFN64 | 双控制器对称并行工作，GANG 供电监控模式 |
-| **单口持续供电能力** | 额定 $5\text{V} / 0.9\text{A}$ (短时允许 $\ge 1.5\text{A}$) | 每组 19Pin 插座限流阈值约 $2.0\text{A} \sim 2.5\text{A}$ (PPTC) |
+| **核心主控芯片** | 2 × 创惟科技 (Genesys Logic) GL3510-QFN64 | 双控制器对称并行工作，Removable 4 口全开模式 |
+| **供电分配能力** | 每组 19Pin 插座（2口共享）限流约 $1.5\text{A} \sim 1.75\text{A}$ | 单口允许独占至 1.5A，双口并发平衡分配约 0.75A |
 | **PCB 物理规格** | $62\text{mm} \times 38\text{mm}$，4 层高 TG FR-4，板厚 1.6mm | 控制差分阻抗 $90\Omega \pm 10\%$，沉金工艺 |
 
 ---
@@ -83,19 +87,21 @@ flowchart TD
         %% 电源分配与保护
         subgraph Power_Domain["电源分配与多级保护域"]
             SATA_In["SATA 15Pin 直焊公座 (J_PWR)"]
-            In_TVS["主输入 TVS 瞬态吸收 + 大容量固态电容阵列"]
-            PPTC_1["自恢复保险丝 PPTC #1<br>(I_hold=2.0A~2.5A)"]
-            PPTC_2["自恢复保险丝 PPTC #2<br>(I_hold=2.0A~2.5A)"]
-            PPTC_3["自恢复保险丝 PPTC #3<br>(I_hold=2.0A~2.5A)"]
-            PPTC_4["自恢复保险丝 PPTC #4<br>(I_hold=2.0A~2.5A)"]
+            In_TVS["主输入 SMAJ5.0A TVS + 大容量固态电容阵列"]
+            In_OVP["电子式 5.6V 快速 OVP 芯片 (SGM2553/DIO7003)"]
+            PPTC_1["自恢复保险丝 PPTC #1<br>(I_hold=1.5A~1.75A)"]
+            PPTC_2["自恢复保险丝 PPTC #2<br>(I_hold=1.5A~1.75A)"]
+            PPTC_3["自恢复保险丝 PPTC #3<br>(I_hold=1.5A~1.75A)"]
+            PPTC_4["自恢复保险丝 PPTC #4<br>(I_hold=1.5A~1.75A)"]
             
             SATA_In --> In_TVS
-            In_TVS -->|5V 系统电源母线| PPTC_1
-            In_TVS -->|5V 系统电源母线| PPTC_2
-            In_TVS -->|5V 系统电源母线| PPTC_3
-            In_TVS -->|5V 系统电源母线| PPTC_4
-            In_TVS -->|5V 芯片工作电源| GL_1
-            In_TVS -->|5V 芯片工作电源| GL_2
+            In_TVS --> In_OVP
+            In_OVP -->|5V 系统电源受保护母线| PPTC_1
+            In_OVP -->|5V 系统电源受保护母线| PPTC_2
+            In_OVP -->|5V 系统电源受保护母线| PPTC_3
+            In_OVP -->|5V 系统电源受保护母线| PPTC_4
+            In_OVP -->|5V 芯片工作电源| GL_1
+            In_OVP -->|5V 芯片工作电源| GL_2
         end
 
         %% 输出接口
@@ -233,35 +239,41 @@ flowchart LR
   * *为什么不用单晶振驱动两片芯片？* 单个无源晶体无法同时驱动两个反相放大器；若使用有源晶振并联分配，会增加高昂的有源振荡器成本（增加 1.5~2.5 元）并引入时钟走线跨板长距离辐射与串扰。
   * *工程方案*：为 GL3510 #1 与 #2 分别配置独立的 **25.000 MHz 无源贴片晶体**，匹配高频陶瓷负载电容（取值约 $12\text{pF}$，实际取值根据晶振负载电容 $C_L=12\text{pF}$ 及 PCB 杂散电容精确匹配）。晶振紧靠芯片 `XI/XO` 引脚放置，下方铺地包围，严禁穿层走线。
 
-### 4.2 系统复位时序与独立主机侦测控制
-两颗 GL3510 芯片内部均集成了上电复位电路 (Power-On Reset, POR)，但为应对 PC 开机瞬间 ATX 电源 5V 爬升斜率不确定、热插拔抖动等复杂工况，板级必须设计可靠的外部复位与时序保持电路：
+### 4.2 系统复位时序与 Host VBUS 联动控制架构
+USB Hub 的状态机复位绝不能仅靠板载 3.3V 的无源 RC 充放电延时，必须与主机（Host）VBUS 的插拔和供电状态形成硬性闭环联动：
 
 ```mermaid
 flowchart LR
-    SATA_5V["SATA 5V 供电"] --> RC["RC 延迟网络<br>(R=10kΩ, C=1μF, τ=10ms)"]
-    RC --> RESET_PIN["两颗 GL3510 的 RESET# 引脚 (低电平有效)"]
-    MB_5V_A["主板 19Pin Port A VBUS"] --> Divider_A["分压网络 A (100kΩ / 100kΩ)"]
-    Divider_A --> VBUS_DET_1["GL3510 #1 的 VBUS_DET 引脚 (~2.5V 阈值)"]
-    MB_5V_B["主板 19Pin Port B VBUS"] --> Divider_B["分压网络 B (100kΩ / 100kΩ)"]
-    Divider_B --> VBUS_DET_2["GL3510 #2 的 VBUS_DET 引脚 (~2.5V 阈值)"]
+    MB_5V_A["主板 Port A VBUS"] --> Div_A["分压网络 A (100k/100k)"]
+    Div_A --> VBUS_DET_1["U1 Pin 25 (VBUS 感测 ~2.5V)"]
+    Div_A --> NMOS_1["N-MOS 栅极 (Q1)"]
+    NMOS_1 --> RESET_1["U1 Pin 24 (RESETJ)<br>10k 上拉到 3.3V"]
+
+    MB_5V_B["主板 Port B VBUS"] --> Div_B["分压网络 B (100k/100k)"]
+    Div_B --> VBUS_DET_2["U2 Pin 25 (VBUS 感测 ~2.5V)"]
+    Div_B --> NMOS_2["N-MOS 栅极 (Q2)"]
+    NMOS_2 --> RESET_2["U2 Pin 24 (RESETJ)<br>10k 上拉到 3.3V"]
 ```
 
-1. **复位引脚配置**：GL3510 复位引脚为低电平有效 (`RESET#`)。配置 $10\text{k}\Omega$ 上拉电阻至 3.3V，并联 $1\mu\text{F}$ 贴片电容接地，硬件提供约 $10\text{ms}$ 的充放电延时，确保主电源及芯片内部 3.3V/1.2V LDO/DC-DC 输出完全稳定后才释放复位。
-2. **主机连接双路独立侦测 (VBUS_DET)**：
-   * 主板输入端包含 Port A 与 Port B 两路独立 VBUS（Pin 1 与 Pin 19）；
-   * 为实现真正绝对的“电气防倒灌与物理隔离”，**严禁将两路主板 VBUS 盲目短接**，而是分别配置两套独立的 $100\text{k}\Omega / 100\text{k}\Omega$ 分压网络（共 4 颗 100kΩ 电阻），分别引至 GL3510 #1 与 GL3510 #2 的 `VBUS_DET` 引脚；
-   * 控制器在检测到 `VBUS_DET` 有效后启动 USB 握手流程；当主机关机时分压网络迅速跌落至 0V，主控立即进入挂起（Suspend）模式。
+1. **Host 掉电与休眠 (S3/S4/S5)**：
+   * 当 PC 主机关机或上行 19Pin 拔出时，Host VBUS 跌落至 0V；
+   * 联动电路瞬时将 `RESETJ` 硬拉低至地，强制芯片进入完全复位与挂起（Suspend）状态，杜绝芯片内部时钟悬空引发的伪死机。
+2. **Host 上电与握手同步**：
+   * 当主机开机且 Host VBUS 建立时，分压网络输出 2.5V 驱动感测端，并释放 `RESETJ`，由板载 $10\text{k}\Omega + 1\mu\text{F}$ 提供约 $10\text{ms}$ 硬件稳压延时后释放高电平；
+   * 两颗 GL3510 与上位机主控实现严密的秒级枚举同步。
 
-### 4.3 GL3510 关键工作模式硬件引脚配置表
+### 4.3 GL3510 关键工作模式硬件引脚配置表 (Strapping Table)
 
-为了达到极致的稳定性并减少走线复杂度，两颗主控芯片的关键策略引脚统一通过板载上拉/下拉固定电阻进行硬件配置（Pin-Strapping）：
+为确保 8 个下游端口全部保持为标准**可插拔（Removable）满载工作模式**，两颗主控芯片的关键引脚严格配置如下：
 
 | 配置功能项 | 对应 GL3510 引脚 | 推荐电平配置 | 硬件电路实现 | 选定该模式的工程设计理由 |
 | :--- | :--- | :---: | :--- | :--- |
 | **参考电流校准 (RTERM)** | `RTERM` (Pin 16) | **精密对地电阻** | **$20\text{k}\Omega \pm 1\%$ 直连 GND** | **【芯片必备】** 规格书强制要求用于 PHY 内部偏置电流校准，两颗芯片各需 1 颗 20kΩ 1%。 |
-| **供电模式 (Power Mode)** | `SELF_PWR` / `BUS_PWR` | **高电平 (High)** | $10\text{k}\Omega$ 上拉至 3.3V | 配置为 **Self-Powered（自供电模式）**。Hub 向上位机上报自身为独立外接电源设备，不从主板申请大电流额度。 |
-| **端口4使能控制 (FN_B)** | `FN_B` (Pin 23) | **悬空 (Floating)** | 保持悬空，严禁下拉接地 | **【严禁下拉】** 下拉 10k 会直接将 Port 4 硬件禁用！悬空保持 Port 4 为不可拆卸满载模式。 |
-| **电源开关模式 (PWRENJ)** | `PWRENJ` (Pin 34) | **悬空 (Floating)** | 保持悬空 | 配合下游纯自恢复保险丝（PolyFuse），按官方 PolyFuse 拓扑保持开路，无需下拉。 |
+| **端口3配置 (FN_A)** | `FN_A` (Pin 22) | **高电平 (High)** | **$10\text{k}\Omega$ 上拉至 3.3V** | **【闭环修正】** 配置 Downstream Port 3 为标准**可插拔（Removable）**端口。 |
+| **端口4配置 (FN_B)** | `FN_B` (Pin 23) | **高电平 (High)** | **$10\text{k}\Omega$ 上拉至 3.3V** | **【闭环修正】** 上拉配置 Port 4 为标准**可插拔（Removable）**端口且 4 口全开（严禁下拉或悬空）。 |
+| **过流状态报告 (OVCURJ)** | `OVCURJ` (Pin 33) | **高电平 (High)** | **$10\text{k}\Omega$ 上拉至 3.3V** | 配合无源自恢复保险丝，禁止向操作系统误报虚假过流中断。 |
+| **电源开关模式 (PWRENJ)** | `PWRENJ` (Pin 34) | **悬空 (Floating)** | 保持悬空 (NC) | 配合下游纯自恢复保险丝（PolyFuse），按官方 PolyFuse 拓扑保持开路。 |
+| **供电模式 (Power Mode)** | 内部识别 + Pin 25 | **自供电模式** | VBUS 感测 + 5V 主供电 | Hub 向上位机上报自身为独立外接电源设备，不从主板申请大电流额度。 |
 | **电池充电支持 (BC 1.2)** | `BC_EN` | **低电平 (Low)** | $10\text{k}\Omega$ 下拉至 GND | 关闭 CDP/DCP 握手模式。PC 机箱内扩展板专注于标准 USB 3.0 高速数据传输与外设稳定通讯。 |
 | **LED 指示模式** | `LED_MOD` | 悬空 / 默认 | 芯片内部弱下拉 | 板载仅保留 1 颗 SATA 5V 电源指示灯。 |
 | **配置接口预留** | `SCL` / `SDA` | **上拉 (High)** | 各串 $4.7\text{k}\Omega$ 上拉至 3.3V | 默认不贴外置 EEPROM，芯片加载内置固件。 |
@@ -282,9 +294,10 @@ flowchart TD
         Pin_Other["SATA Pin 1~3 (3.3V), 11 (预留), 13~15 (12V) (全部物理悬空 NC)"]
     end
 
-    subgraph Protection_Input["输入主保护与储能网络"]
-        TVS_Main["5V 单向 TVS 瞬态吸收二极管 (SMBJ5.0A)"]
-        Cap_Bulk["大容量固态电容阵列 (100μF 钽电容/高分子聚合物 + 10μF MLCC)"]
+    subgraph Protection_Input["输入复合保护与储能网络"]
+        TVS_Main["5V 单向 TVS 瞬态吸收二极管 (SMAJ5.0A)"]
+        OVP_Chip["电子式 5.6V 快速 OVP 芯片 (SGM2553/DIO7003)"]
+        Cap_Bulk["大容量固态电容阵列 (470μF 低ESR固态 + 10μF MLCC)"]
         LED_Pwr["电源指示灯 (绿色 0603 LED + 1kΩ 限流电阻)"]
     end
 
@@ -294,16 +307,17 @@ flowchart TD
         Cap_Decouple["0.1μF + 1μF 高频去耦电容 (紧靠芯片引脚)"]
     end
 
-    subgraph Port_Protection["4 组下行输出支路保护"]
-        PPTC1["PPTC #1 (1206, 2.0A~2.5A)"] --> VBUS1["J_OUT1 (Pin 1 & 19 并联)"]
-        PPTC2["PPTC #2 (1206, 2.0A~2.5A)"] --> VBUS2["J_OUT2 (Pin 1 & 19 并联)"]
-        PPTC3["PPTC #3 (1206, 2.0A~2.5A)"] --> VBUS3["J_OUT3 (Pin 1 & 19 并联)"]
-        PPTC4["PPTC #4 (1206, 2.0A~2.5A)"] --> VBUS4["J_OUT4 (Pin 1 & 19 并联)"]
-        Cap_Port["每组插座配置 10μF + 0.1μF 储能与高频滤波电容"]
+    subgraph Port_Protection["4 组下行输出支路保护 (双口共享)"]
+        PPTC1["PPTC #1 (1206, 1.50A~1.75A)"] --> VBUS1["J_OUT1 (Pin 1 & 19 并联)"]
+        PPTC2["PPTC #2 (1206, 1.50A~1.75A)"] --> VBUS2["J_OUT2 (Pin 1 & 19 并联)"]
+        PPTC3["PPTC #3 (1206, 1.50A~1.75A)"] --> VBUS3["J_OUT3 (Pin 1 & 19 并联)"]
+        PPTC4["PPTC #4 (1206, 1.50A~1.75A)"] --> VBUS4["J_OUT4 (Pin 1 & 19 并联)"]
+        Cap_Port["每组插座配置 100μF 陶瓷 + 0.1μF 储能滤波电容"]
     end
 
     Pin_5V ==> TVS_Main
-    TVS_Main ==> Cap_Bulk
+    TVS_Main ==> OVP_Chip
+    OVP_Chip ==> Cap_Bulk
     Cap_Bulk ==> LED_Pwr
     Cap_Bulk ==> PPTC1
     Cap_Bulk ==> PPTC2
@@ -399,21 +413,25 @@ flowchart TD
 * **USB 2.0 High-Speed 对 (D+, D-)**：严格控制特征差分阻抗为 **$90\Omega \pm 10\%$**；
 * **共模阻抗**：单端特性阻抗控制在 $45\Omega \pm 10\%$。
 
-### 7.2 高速走线物理拓扑规则
-1. **等长与相位匹配 (Phase Skew)**：
-   * 差分对内（Intra-pair，即 + 与 - 之间）的长度误差必须控制在 **$\le 5\text{mil}$ ($0.127\text{mm}$)** 以内；
-   * 长度补偿采用平缓的微蛇形弯（曲率半径 $\ge 3\times$ 线宽），补偿点紧邻产生长度差异的弯头区域。
-2. **过孔与换层约束**：
-   * 所有 SuperSpeed 差分线尽量全链路在 Top 层直走，避免换层；
-   * 若空间限制必须过孔换层，单对差分线过孔数量严禁超过 2 个；
-   * 换层过孔旁 **$\le 40\text{mil}$** 范围内必须打一对伴随接地过孔（GND return via），保证高频回流路径阻抗不突变。
-3. **隔离与包地 (Shielding & Spacing)**：
-   * 差分对与差分对之间必须遵循 **$3\text{W}$ 原则**（边沿间距 $\ge 3 \times$ 差分线到参考层厚度）；
-   * 严禁差分线跨越任何电源分割区（严禁跨越 Layer 2 地平面的任何缝隙）。
+### 7.2 高速走线物理拓扑与 Connector Launch 规范
+1. **顶层直走零残桩（Zero Stub）原则**：
+   * 5 个 19Pin 插座全部采用通孔/弯针器件。所有 10 对 SuperSpeed 差分线（上行 2 对 + 下行 8 对）**强制在 Top Layer（顶层）直走**，从引脚顶部直接引出，彻底规避通孔导致的垂直过孔残桩（Via Stub）谐振损耗；
+   * 严禁无故打孔换层；若极限空间换层，换层孔旁 $\le 30\text{mil}$ 必须紧邻打入一对伴随地过孔（GND return via）。
+2. **反焊盘（Anti-Pad）开槽优化**：
+   * 在 Layer 2 完整地平面上，对 19Pin 插件引脚高速焊盘区域开设反焊盘扩孔开槽（Anti-pad Clearance $\ge 16\text{mil} / 0.4\text{mm}$），消除密集通孔焊盘引入的容性阻抗深跌落（Dip）。
+3. **等长与相位匹配 (Phase Skew)**：
+   * 差分对内（Intra-pair，即 + 与 - 之间）的长度误差必须严格控制在 **$\le 5\text{mil}$ ($0.127\text{mm}$)** 以内；
+   * 长度补偿采用平缓的微蛇形弯（曲率半径 $\ge 3\times$ 线宽），补偿点紧邻产生长度差异的拐角区域。
+4. **隔离与包地 (Shielding & Spacing)**：
+   * 差分对与差分对之间必须遵循 **$3\text{W}$ 原则**（间距 $\ge 15\text{mil}$）；
+   * 严禁差分线跨越任何电源分割区（必须在 Layer 2 完整地平面上方完整走线）。
 
-### 7.3 ESD 静电放电防护拓扑
-* 所有与机箱外接长线束直接连通的插座端口（J_IN 及 J_OUT1~4 的全部差分引脚），必须在靠近插座焊盘处布置超低结电容 ESD 阵列芯片；
-* **结电容约束**：SuperSpeed 线路 ESD 芯片引脚结电容必须 **$< 0.4\text{pF}$**（推荐选用 DFN-10P 或 SOT-23-6 封装的超低容专用阵列，如 USBLC6-2SC6 或 ESD7383），防止高频眼图产生畸变闭合。
+### 7.3 ESD 静电放电防护完整闭环拓扑
+* **USB 2.0 差分链路防护（全覆盖 10 对）**：
+  * 上行 2 对（Port A, Port B）+ 下行 8 对（Port 1~8），共计 10 对 D+/D- 差分线；
+  * 配置 **10 颗双通道低容 ESD 芯片（USBLC6-2SC6 / SR05，SOT-23-6 封装，结电容 $C_j \le 1.0\text{pF}$）**，实现 100% 逐路防护。
+* **SuperSpeed 5Gbps 高频链路防护**：
+  * 采用超低容专用 ESD 阵列芯片（如 DFN-2510P10 封装的 **AZ1045-04F** 或 **ESD7383**，引脚结电容 **$C_j \le 0.25\text{pF}$**，Flow-through 封装无 Stub 贯通走线），防止 5Gbps 眼图闭合。
 
 ---
 
