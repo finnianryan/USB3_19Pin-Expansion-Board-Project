@@ -53,14 +53,20 @@
 ```mermaid
 flowchart LR
     subgraph Host_Side["主板原生 19Pin 侧 (J_IN)"]
-        MB_VBUS["Pin 1 & Pin 19<br>(主板 5V 供电)"]
+        MB_VBUS_A["Pin 1 (Port A 5V)"]
+        MB_VBUS_B["Pin 19 (Port B 5V)"]
         MB_GND["Pin 4, 7, 13, 16<br>(系统共地 GND)"]
     end
 
-    subgraph Sense_Network["板载高阻分压网络"]
-        R1["分压上电阻 R1<br>100 kΩ ±1% (0402)"]
-        R2["分压下电阻 R2<br>100 kΩ ±1% (0402)"]
-        C_filter["高频滤波电容 C_f<br>0.1 μF / 16V (0402)"]
+    subgraph Sense_Network["双路独立高阻分压网络"]
+        subgraph Channel_A["Port A 侦测支路"]
+            R1["上电阻 R1: 100kΩ ±1%"]
+            R2["下电阻 R2: 100kΩ ±1%"]
+        end
+        subgraph Channel_B["Port B 侦测支路"]
+            R3["上电阻 R3: 100kΩ ±1%"]
+            R4["下电阻 R4: 100kΩ ±1%"]
+        end
     end
 
     subgraph Controller_Side["两颗 GL3510 主控芯片"]
@@ -68,15 +74,15 @@ flowchart LR
         U2_DET["GL3510 #2 的 VBUS_DET 引脚<br>(高电平有效门限: 2.0V~3.3V)"]
     end
 
-    MB_VBUS --> R1
-    R1 --> Node_Sense["采样节点 V_sense"]
-    Node_Sense --> R2
-    Node_Sense --> C_filter
-    R2 --> MB_GND
-    C_filter --> MB_GND
-    
-    Node_Sense ==> U1_DET
-    Node_Sense ==> U2_DET
+    MB_VBUS_A --> R1
+    R1 --> Node_A["采样点 A (2.5V)"]
+    Node_A --> R2 --> MB_GND
+    Node_A ==> U1_DET
+
+    MB_VBUS_B --> R3
+    R3 --> Node_B["采样点 B (2.5V)"]
+    Node_B --> R4 --> MB_GND
+    Node_B ==> U2_DET
 ```
 
 ### 3.2 采样参数严密推导与容差分析
@@ -116,10 +122,10 @@ flowchart LR
 ## 4. SATA 5V 功率预算与整板带载模型
 
 ### 4.1 SATA 15Pin 输入接口承流能力
-标准 PC 电源 SATA 15Pin 接头定义中，+5V 供电分配在 **Pin 4、Pin 5、Pin 6** 三根端子上；地线 (GND) 分配在 **Pin 7、Pin 8、Pin 9、Pin 10、Pin 11、Pin 12** 六根端子上。
+标准 PC 电源 SATA 15Pin 接头定义中，+5V 供电分配在 **Pin 7、Pin 8、Pin 9** 三根端子上；地线 (GND) 分配在 **Pin 4、Pin 5、Pin 6、Pin 10、Pin 12** 端子上；Pin 1~3 (3.3V) 与 Pin 13~15 (12V) 物理悬空不接。
 * **端子额定承流规格**：标准磷铜镀金端子单引脚额定承载电流为 $1.5\text{A}$；
 * **并联总输入能力**：
-  * 3 针 +5V 端子在 PCB 走线层直接大面积打通并联：
+  * 3 针 +5V 端子（Pin 7, 8, 9）在 PCB 走线层直接大面积打通并联：
     $$I_{SATA\_rated} = 3 \times 1.5\text{A} = 4.5\text{A} \quad (\text{额定持续输出能力})$$
   * 在短时瞬态脉冲工况下，端子允许短时间通过高达 **$6.0\text{A}$** 电流；
 * **输入功率上限**：

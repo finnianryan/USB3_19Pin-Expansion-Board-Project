@@ -76,8 +76,8 @@ flowchart TD
         
         %% 主控芯片
         subgraph Controller_Domain["并行双主控处理域"]
-            GL_1["GL3510 控制器 #1 (QFN-64)<br>工作模式: GANG Mode<br>24MHz 无源晶振 #1"]
-            GL_2["GL3510 控制器 #2 (QFN-64)<br>工作模式: GANG Mode<br>24MHz 无源晶振 #2"]
+            GL_1["GL3510 控制器 #1 (QFN-64)<br>工作模式: GANG Mode<br>25.000MHz 无源晶振 #1"]
+            GL_2["GL3510 控制器 #2 (QFN-64)<br>工作模式: GANG Mode<br>25.000MHz 无源晶振 #2"]
         end
 
         %% 电源分配与保护
@@ -220,34 +220,37 @@ flowchart TD
 
 ## 4. 时钟、复位与主控硬件配置策略
 
-### 4.1 独立 24MHz 晶振时钟拓扑
-两颗 GL3510 控制器对系统时钟抖动（Jitter）和频偏要求极为严格（SuperSpeed 5Gbps 物理层要求参考时钟频偏 $\le \pm 50\text{ppm}$）。
+### 4.1 独立 25MHz 晶振时钟拓扑
+两颗 GL3510 控制器对系统时钟抖动（Jitter）和频偏要求极为严格（SuperSpeed 5Gbps 物理层要求参考时钟为 25.000MHz，频偏 $\le \pm 50\text{ppm}$）。
 
 ```mermaid
 flowchart LR
-    Xtal1["24.000 MHz 贴片无源晶振 #1<br>(12pF / ±10ppm / 3225 封装)"] -->|XI / XO| GL1["GL3510 控制器 #1"]
-    Xtal2["24.000 MHz 贴片无源晶振 #2<br>(12pF / ±10ppm / 3225 封装)"] -->|XI / XO| GL2["GL3510 控制器 #2"]
+    Xtal1["25.000 MHz 贴片无源晶振 #1<br>(12pF / ±10ppm / 3225 封装)"] -->|XI / XO| GL1["GL3510 控制器 #1"]
+    Xtal2["25.000 MHz 贴片无源晶振 #2<br>(12pF / ±10ppm / 3225 封装)"] -->|XI / XO| GL2["GL3510 控制器 #2"]
 ```
 
 * **架构决策：坚决采用“双独立晶振”方案**
   * *为什么不用单晶振驱动两片芯片？* 单个无源晶体无法同时驱动两个反相放大器；若使用有源晶振并联分配，会增加高昂的有源振荡器成本（增加 1.5~2.5 元）并引入时钟走线跨板长距离辐射与串扰。
-  * *工程方案*：为 GL3510 #1 与 #2 分别配置独立的 **24.000 MHz 无源贴片晶体**，匹配高频陶瓷负载电容（约 $15\text{pF} \sim 18\text{pF}$，实际取值根据晶振负载电容 $C_L=12\text{pF}$ 及 PCB 杂散电容精确匹配）。晶振紧靠芯片 `XI/XO` 引脚放置，下方铺地包围，严禁穿层走线。
+  * *工程方案*：为 GL3510 #1 与 #2 分别配置独立的 **25.000 MHz 无源贴片晶体**，匹配高频陶瓷负载电容（取值约 $12\text{pF}$，实际取值根据晶振负载电容 $C_L=12\text{pF}$ 及 PCB 杂散电容精确匹配）。晶振紧靠芯片 `XI/XO` 引脚放置，下方铺地包围，严禁穿层走线。
 
-### 4.2 系统复位时序与上电控制
+### 4.2 系统复位时序与独立主机侦测控制
 两颗 GL3510 芯片内部均集成了上电复位电路 (Power-On Reset, POR)，但为应对 PC 开机瞬间 ATX 电源 5V 爬升斜率不确定、热插拔抖动等复杂工况，板级必须设计可靠的外部复位与时序保持电路：
 
 ```mermaid
 flowchart LR
     SATA_5V["SATA 5V 供电"] --> RC["RC 延迟网络<br>(R=10kΩ, C=1μF, τ=10ms)"]
     RC --> RESET_PIN["两颗 GL3510 的 RESET# 引脚 (低电平有效)"]
-    MB_5V["主板 19Pin VBUS (5V)"] --> Divider["分压网络 (100kΩ / 100kΩ)"]
-    Divider --> VBUS_DET["两颗 GL3510 的 VBUS_DET 引脚 (~2.5V 阈值)"]
+    MB_5V_A["主板 19Pin Port A VBUS"] --> Divider_A["分压网络 A (100kΩ / 100kΩ)"]
+    Divider_A --> VBUS_DET_1["GL3510 #1 的 VBUS_DET 引脚 (~2.5V 阈值)"]
+    MB_5V_B["主板 19Pin Port B VBUS"] --> Divider_B["分压网络 B (100kΩ / 100kΩ)"]
+    Divider_B --> VBUS_DET_2["GL3510 #2 的 VBUS_DET 引脚 (~2.5V 阈值)"]
 ```
 
 1. **复位引脚配置**：GL3510 复位引脚为低电平有效 (`RESET#`)。配置 $10\text{k}\Omega$ 上拉电阻至 3.3V，并联 $1\mu\text{F}$ 贴片电容接地，硬件提供约 $10\text{ms}$ 的充放电延时，确保主电源及芯片内部 3.3V/1.2V LDO/DC-DC 输出完全稳定后才释放复位。
-2. **主机连接侦测 (VBUS_DET)**：
-   * 依据 GL3510 规格书，`VBUS_DET` 引脚用于让 Hub 感知上行主机是否处于活动状态。当主板开机且 19Pin 产生 5V 时，经 $100\text{k}\Omega / 100\text{k}\Omega$ 分压后输出约 $2.5\text{V}$ 高电平到该引脚；
-   * 控制器在检测到 `VBUS_DET` 有效后，启动 USB 握手流程；当主机关机时，分压网络迅速跌落至 0V，主控立即进入挂起（Suspend）模式，彻底关闭下游端口时钟与高速收发器。
+2. **主机连接双路独立侦测 (VBUS_DET)**：
+   * 主板输入端包含 Port A 与 Port B 两路独立 VBUS（Pin 1 与 Pin 19）；
+   * 为实现真正绝对的“电气防倒灌与物理隔离”，**严禁将两路主板 VBUS 盲目短接**，而是分别配置两套独立的 $100\text{k}\Omega / 100\text{k}\Omega$ 分压网络（共 4 颗 100kΩ 电阻），分别引至 GL3510 #1 与 GL3510 #2 的 `VBUS_DET` 引脚；
+   * 控制器在检测到 `VBUS_DET` 有效后启动 USB 握手流程；当主机关机时分压网络迅速跌落至 0V，主控立即进入挂起（Suspend）模式。
 
 ### 4.3 GL3510 关键工作模式硬件引脚配置表
 
@@ -255,11 +258,13 @@ flowchart LR
 
 | 配置功能项 | 对应 GL3510 引脚 | 推荐电平配置 | 硬件电路实现 | 选定该模式的工程设计理由 |
 | :--- | :--- | :---: | :--- | :--- |
+| **参考电流校准 (RTERM)** | `RTERM` (Pin 16) | **精密对地电阻** | **$20\text{k}\Omega \pm 1\%$ 直连 GND** | **【芯片必备】** 规格书强制要求用于 PHY 内部偏置电流校准，两颗芯片各需 1 颗 20kΩ 1%。 |
 | **供电模式 (Power Mode)** | `SELF_PWR` / `BUS_PWR` | **高电平 (High)** | $10\text{k}\Omega$ 上拉至 3.3V | 配置为 **Self-Powered（自供电模式）**。Hub 向上位机上报自身为独立外接电源设备，不从主板申请大电流额度。 |
-| **过流与电源控制模式** | `PGANG#` / `GANG_EN` | **低电平 (Low)** | $10\text{k}\Omega$ 下拉至 GND | 配置为 **GANG Mode（群组管理模式）**。免除 8 路独立的 `PWREN#` 和 `OVC#` 引脚布线，大幅度简化布线空间。 |
-| **电池充电支持 (BC 1.2)** | `BC_EN` | **低电平 (Low)** | $10\text{k}\Omega$ 下拉至 GND | 关闭 CDP/DCP 握手模式。PC 机箱内扩展板专注于标准 USB 3.0 高速数据传输与外设稳定通讯，避免误触发非标大电流充电造成电压拉扯。 |
-| **LED 指示模式** | `LED_MOD` | 悬空 / 默认 | 芯片内部弱下拉 | 首版暂不引出 8 组独立 LED，节省布线与外围阻容；板载仅保留 1 颗 SATA 5V 电源指示灯。 |
-| **配置接口预留** | `SCL` / `SDA` | **上拉 (High)** | 各串 $4.7\text{k}\Omega$ 上拉至 3.3V | 默认不贴外置 EEPROM，芯片加载内置固件；预留 I2C 贴片焊盘供后续定制厂商 VID/PID。 |
+| **端口4使能控制 (FN_B)** | `FN_B` (Pin 23) | **悬空 (Floating)** | 保持悬空，严禁下拉接地 | **【严禁下拉】** 下拉 10k 会直接将 Port 4 硬件禁用！悬空保持 Port 4 为不可拆卸满载模式。 |
+| **电源开关模式 (PWRENJ)** | `PWRENJ` (Pin 34) | **悬空 (Floating)** | 保持悬空 | 配合下游纯自恢复保险丝（PolyFuse），按官方 PolyFuse 拓扑保持开路，无需下拉。 |
+| **电池充电支持 (BC 1.2)** | `BC_EN` | **低电平 (Low)** | $10\text{k}\Omega$ 下拉至 GND | 关闭 CDP/DCP 握手模式。PC 机箱内扩展板专注于标准 USB 3.0 高速数据传输与外设稳定通讯。 |
+| **LED 指示模式** | `LED_MOD` | 悬空 / 默认 | 芯片内部弱下拉 | 板载仅保留 1 颗 SATA 5V 电源指示灯。 |
+| **配置接口预留** | `SCL` / `SDA` | **上拉 (High)** | 各串 $4.7\text{k}\Omega$ 上拉至 3.3V | 默认不贴外置 EEPROM，芯片加载内置固件。 |
 
 ---
 
@@ -271,10 +276,10 @@ flowchart LR
 
 ```mermaid
 flowchart TD
-    subgraph PSU_Input["SATA 15Pin 输入接口"]
-        Pin_5V["SATA Pin 4, 5, 6 (+5V 总线)"]
-        Pin_GND["SATA Pin 7~12 (系统地)"]
-        Pin_Other["SATA 12V 与 3.3V (物理悬空不接孔)"]
+    subgraph PSU_Input["SATA 15Pin 输入接口 (标准定义)"]
+        Pin_5V["SATA Pin 7, 8, 9 (+5V_SATA 主总线)"]
+        Pin_GND["SATA Pin 4, 5, 6, 10, 12 (系统地 GND)"]
+        Pin_Other["SATA Pin 1~3 (3.3V), 11 (预留), 13~15 (12V) (全部物理悬空 NC)"]
     end
 
     subgraph Protection_Input["输入主保护与储能网络"]
